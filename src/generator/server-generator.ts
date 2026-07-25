@@ -15,6 +15,34 @@ const server = new Server(
   { capabilities: { tools: {} } }
 );
 
+function zodToMcpSchema(zodSchema: any) {
+  const properties: Record<string, any> = {};
+  const required: string[] = [];
+  if (zodSchema && zodSchema.shape) {
+    for (const [key, value] of Object.entries(zodSchema.shape) as any[]) {
+      let type = "string";
+      if (value._def?.typeName === "ZodNumber" || value._def?.typeName === "ZodInteger") type = "number";
+      else if (value._def?.typeName === "ZodBoolean") type = "boolean";
+      else if (value._def?.typeName === "ZodArray") type = "array";
+      else if (value._def?.typeName === "ZodObject") type = "object";
+      
+      const propDef: any = { type };
+      if (value.description) {
+        propDef.description = value.description;
+      }
+      properties[key] = propDef;
+      if (typeof value.isOptional === "function" && !value.isOptional()) {
+        required.push(key);
+      }
+    }
+  }
+  return {
+    type: "object",
+    properties,
+    required: required.length > 0 ? required : undefined
+  };
+}
+
 const registry = new Map<string, any>();
 for (const [name, tool] of Object.entries(defaultTools)) {
   registry.set(tool.name, tool);
@@ -25,10 +53,7 @@ server.setRequestHandler(ListToolsRequestSchema, async () => {
     tools: Array.from(registry.values()).map(t => ({
       name: t.name,
       description: t.description,
-      inputSchema: {
-        type: "object",
-        properties: {} // Mock simple schema mappings
-      }
+      inputSchema: zodToMcpSchema(t.inputSchema)
     }))
   };
 });

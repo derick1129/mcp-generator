@@ -16,16 +16,17 @@ export function generateTools(project: MCPProject): Map<string, string> {
       camelName = `_${camelName}`;
     }
     const inputSchemaName = `schemas.${camelName}InputSchema`;
+    const pathLiteral = JSON.stringify(tool.endpoint.path);
 
     const functionBody = `
       const baseUrl = process.env.API_BASE_URL || "http://localhost:8000";
-      const path = "${tool.endpoint.path}".replace(/\\{(\\w+)\\}/g, (_, name) => encodeURIComponent((args as any)[name]));
+      const path = ${pathLiteral}.replace(/\\{(\\w+)\\}/g, (_, name) => encodeURIComponent((args as any)?.[name]));
       const url = new URL(baseUrl + path);
       
       // Add query parameters
       if (args) {
         for (const [key, value] of Object.entries(args)) {
-          if (!"${tool.endpoint.path}".includes("{" + key + "}")) {
+          if (!${pathLiteral}.includes("{" + key + "}")) {
             url.searchParams.append(key, String(value));
           }
         }

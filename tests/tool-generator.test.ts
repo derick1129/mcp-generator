@@ -13,13 +13,17 @@ test("generates correct tools mapping", async () => {
   const defaultTools = toolsMap.get("default.ts");
   expect(defaultTools).toBeDefined();
   expect(defaultTools).toContain("export const getUserTool");
+  expect(defaultTools).toContain("(args as any)?.[name]");
+  expect(defaultTools).toContain('const path = "/users/{id}".replace');
 });
 
-test("generates main server setup file", async () => {
+test("generates main server setup file with zodToMcpSchema converter", async () => {
   const spec = await parseOpenApiSpec("tests/fixtures/simple-spec.yaml");
   const project = translateToIIM(spec);
   const serverFileStr = generateServerFile(project);
 
   expect(serverFileStr).toContain("new Server");
   expect(serverFileStr).toContain("ListToolsRequestSchema");
+  expect(serverFileStr).toContain("function zodToMcpSchema");
+  expect(serverFileStr).toContain("zodToMcpSchema(t.inputSchema)");
 });
