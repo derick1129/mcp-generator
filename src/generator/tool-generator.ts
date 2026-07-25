@@ -18,23 +18,52 @@ export function generateTools(project: MCPProject): Map<string, string> {
     const inputSchemaName = `schemas.${camelName}InputSchema`;
     const pathLiteral = JSON.stringify(tool.endpoint.path);
 
+    const pathParamNames = tool.endpoint.parameters.filter(p => p.in === "path").map(p => p.name);
+    const queryParamNames = tool.endpoint.parameters.filter(p => p.in === "query").map(p => p.name);
+    const headerParamNames = tool.endpoint.parameters.filter(p => p.in === "header").map(p => p.name);
+    const hasRequestBody = !!tool.endpoint.requestBody;
+
     const functionBody = `
-      const baseUrl = process.env.API_BASE_URL || "http://localhost:8000";
+      const baseUrl = process.env.API_BASE_URL || ${JSON.stringify(project.baseUrl || "http://localhost:8000")};
       const path = ${pathLiteral}.replace(/\\{(\\w+)\\}/g, (_, name) => encodeURIComponent((args as any)?.[name]));
       const url = new URL(baseUrl + path);
       
-      // Add query parameters
+      const queryParamNames: string[] = ${JSON.stringify(queryParamNames)};
+      const headerParamNames: string[] = ${JSON.stringify(headerParamNames)};
+      const pathParamNames: string[] = ${JSON.stringify(pathParamNames)};
+      const hasRequestBody = ${hasRequestBody};
+
+      const headers: Record<string, string> = {};
+      const body: Record<string, any> = {};
+
       if (args) {
         for (const [key, value] of Object.entries(args)) {
-          if (!${pathLiteral}.includes("{" + key + "}")) {
+          if (value === undefined) continue;
+          if (pathParamNames.includes(key)) {
+            continue;
+          } else if (queryParamNames.includes(key)) {
+            url.searchParams.append(key, String(value));
+          } else if (headerParamNames.includes(key)) {
+            headers[key] = String(value);
+          } else if (hasRequestBody) {
+            body[key] = value;
+          } else {
             url.searchParams.append(key, String(value));
           }
         }
       }
 
-      const response = await fetch(url.toString(), {
-        method: "${tool.endpoint.method.toUpperCase()}"
-      });
+      const fetchOptions: RequestInit = {
+        method: "${tool.endpoint.method.toUpperCase()}",
+        headers
+      };
+
+      if (Object.keys(body).length > 0) {
+        headers["Content-Type"] = "application/json";
+        fetchOptions.body = JSON.stringify(body);
+      }
+
+      const response = await fetch(url.toString(), fetchOptions);
 
       if (!response.ok) {
         return {

@@ -60,6 +60,7 @@ function resolveSchema(schema: any): SchemaDefinition {
 export function translateToIIM(spec: any): MCPProject {
   const title = spec.info?.title || "mcp-server";
   const version = spec.info?.version || "1.0.0";
+  const baseUrl = spec.servers?.[0]?.url || "http://localhost:8000";
   const tools: ToolDefinition[] = [];
 
   const paths = spec.paths || {};
@@ -175,6 +176,7 @@ export function translateToIIM(spec: any): MCPProject {
     version,
     outputDirectory: "./generated-mcp-server",
     tools,
-    securitySchemes
+    securitySchemes,
+    baseUrl
   };
 }

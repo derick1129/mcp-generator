@@ -71,4 +71,6 @@ export interface MCPProject {
   outputDirectory: string;
   tools: ToolDefinition[];
   securitySchemes: SecurityScheme[];
+  baseUrl?: string;
 }
+

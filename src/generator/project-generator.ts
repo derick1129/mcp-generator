@@ -20,7 +20,8 @@ export async function generateProjectBoilerplate(project: MCPProject, outDir: st
     const compiled = Handlebars.compile(templateContent);
     const result = compiled({
       name: project.name,
-      version: project.version
+      version: project.version,
+      baseUrl: project.baseUrl || "http://localhost:8000"
     });
 
     await writeFile(join(outDir, filename), result);

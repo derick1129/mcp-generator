@@ -178,3 +178,16 @@ test("resolves array item schemas recursively for objects in arrays", async () =
   expect(itemsProp?.items?.properties?.length).toBe(2);
   expect(itemsProp?.items?.properties?.[0].name).toBe("id");
 });
+
+test("extracts first server URL from spec as baseUrl", async () => {
+  const spec = {
+    openapi: "3.0.0",
+    info: { title: "Server Spec API", version: "1.0.0" },
+    servers: [{ url: "https://api.example.com/v1" }],
+    paths: {}
+  };
+
+  const project = translateToIIM(spec);
+  expect(project.baseUrl).toBe("https://api.example.com/v1");
+});
+

@@ -1,0 +1,491 @@
+# MCP Generator — Specification (v1)
+
+## Overview
+
+MCP Generator is a **Bun + TypeScript** CLI application that generates production-ready **Model Context Protocol (MCP)** servers from existing **OpenAPI Specifications**.
+
+Instead of manually implementing MCP tools for every REST endpoint, the generator automatically parses an OpenAPI specification, converts it into an internal representation, generates a complete TypeScript MCP project using the official MCP TypeScript SDK, validates the generated project, and outputs a runnable MCP server.
+
+The project follows a compiler-style architecture:
+
+```
+OpenAPI Specification
+        │
+        ▼
+OpenAPI Parser
+        │
+        ▼
+Internal Intermediate Model
+        │
+        ▼
+Code Generator
+        │
+        ▼
+Generated TypeScript Project
+        │
+        ▼
+Official MCP SDK
+        │
+        ▼
+Runnable MCP Server
+```
+
+The generator is deterministic, meaning the same OpenAPI specification always produces the same MCP server.
+
+---
+
+# Architecture
+
+```
+                  OpenAPI Spec
+               (JSON / YAML)
+                       │
+                       ▼
+          OpenAPI Parser & Validator
+        (Swagger Parser + Validation)
+                       │
+                       ▼
+      Internal Intermediate Model (IIM)
+ (Endpoints • Schemas • Auth • Parameters)
+                       │
+                       ▼
+          Code Generation Engine
+      (ts-morph + Handlebars Templates)
+                       │
+                       ▼
+      Generated TypeScript MCP Project
+                       │
+                       ▼
+      Official MCP TypeScript SDK
+                       │
+                       ▼
+      Build • Validate • Test • Run
+                       │
+                       ▼
+            Runnable MCP Server
+```
+
+---
+
+# Package Structure
+
+```
+mcp-generator/
+
+├── bunfig.toml
+├── package.json
+├── tsconfig.json
+├── README.md
+│
+├── src/
+│
+│   ├── cli/
+│   │   ├── index.ts
+│   │   ├── generate.ts
+│   │   ├── validate.ts
+│   │   ├── doctor.ts
+│   │   └── init.ts
+│   │
+│   ├── parser/
+│   │   ├── parser.ts
+│   │   ├── validator.ts
+│   │   └── resolver.ts
+│   │
+│   ├── models/
+│   │   ├── endpoint.ts
+│   │   ├── tool.ts
+│   │   ├── auth.ts
+│   │   ├── schema.ts
+│   │   └── project.ts
+│   │
+│   ├── generator/
+│   │   ├── engine.ts
+│   │   ├── project-generator.ts
+│   │   ├── tool-generator.ts
+│   │   ├── auth-generator.ts
+│   │   ├── schema-generator.ts
+│   │   └── ast/
+│   │
+│   ├── runtime/
+│   │   ├── installer.ts
+│   │   ├── builder.ts
+│   │   └── validator.ts
+│   │
+│   ├── templates/
+│   │
+│   ├── utils/
+│   │
+│   └── index.ts
+│
+├── templates/
+│
+└── tests/
+```
+
+---
+
+# Core Data Models
+
+## EndpointDefinition
+
+```ts
+interface EndpointDefinition {
+
+    id: string
+
+    operationId: string
+
+    method: string
+
+    path: string
+
+    summary: string
+
+    description?: string
+
+    parameters: ParameterDefinition[]
+
+    requestBody?: RequestBodyDefinition
+
+    responses: ResponseDefinition[]
+
+    authentication?: AuthenticationDefinition
+
+}
+```
+
+---
+
+## ToolDefinition
+
+```ts
+interface ToolDefinition {
+
+    name: string
+
+    description: string
+
+    endpoint: EndpointDefinition
+
+    inputSchema: ZodSchema
+
+    outputSchema?: ZodSchema
+
+}
+```
+
+---
+
+## MCPProject
+
+```ts
+interface MCPProject {
+
+    name: string
+
+    version: string
+
+    outputDirectory: string
+
+    tools: ToolDefinition[]
+
+    authentication: AuthenticationDefinition[]
+
+}
+```
+
+---
+
+# Technology Stack
+
+| Component | Technology |
+|------------|------------|
+| Runtime | Bun |
+| Language | TypeScript |
+| CLI | Commander.js |
+| OpenAPI Parser | @apidevtools/swagger-parser |
+| Validation | Zod |
+| Code Generation | ts-morph |
+| Templates | Handlebars |
+| MCP Runtime | Official MCP TypeScript SDK |
+| Formatting | Prettier |
+| Testing | Bun Test |
+| Linting | ESLint |
+
+---
+
+# Generation Pipeline
+
+## Stage 1 — Parse OpenAPI
+
+Input
+
+```
+openapi.json
+
+or
+
+openapi.yaml
+```
+
+Responsibilities
+
+- Parse OpenAPI specification
+- Validate specification
+- Resolve `$ref`
+- Extract endpoints
+- Extract schemas
+- Extract authentication
+- Normalize specification
+
+Output
+
+```
+OpenApiDocument
+```
+
+---
+
+## Stage 2 — Internal Intermediate Model
+
+The parser converts the OpenAPI document into an internal representation used throughout the generator.
+
+The generator never reads OpenAPI directly.
+
+Example:
+
+```
+OpenAPI
+
+↓
+
+Internal Intermediate Model
+
+↓
+
+Endpoint Definitions
+
+↓
+
+Tool Definitions
+```
+
+The IIM contains
+
+- Endpoints
+- Parameters
+- Request Bodies
+- Response Schemas
+- Authentication
+- Tags
+- Models
+
+This architecture allows future support for multiple input formats while keeping the generator unchanged.
+
+---
+
+## Stage 3 — Code Generation
+
+Input
+
+```
+Internal Intermediate Model
+```
+
+Responsibilities
+
+- Generate imports
+- Generate MCP server
+- Generate tool files
+- Generate authentication
+- Generate schemas
+- Generate project structure
+
+The code generation engine uses
+
+- ts-morph
+- Handlebars templates
+
+Output
+
+```
+TypeScript Source Files
+```
+
+---
+
+## Stage 4 — Generate Project Assets
+
+Generate project files
+
+```
+package.json
+
+tsconfig.json
+
+bunfig.toml
+
+README.md
+
+.gitignore
+
+.env.example
+```
+
+using reusable Handlebars templates.
+
+---
+
+## Stage 5 — Validation
+
+After generation
+
+```
+Generate Project
+
+↓
+
+bun install
+
+↓
+
+Type Check
+
+↓
+
+Build
+
+↓
+
+Start MCP Server
+
+↓
+
+Initialize MCP
+
+↓
+
+List Tools
+
+↓
+
+Execute Sample Tool
+
+↓
+
+Validation Passed
+```
+
+Only validated projects are considered successfully generated.
+
+---
+
+# CLI Commands
+
+```bash
+mcpgen init
+
+mcpgen generate openapi.yaml
+
+mcpgen generate openapi.json
+
+mcpgen generate http://localhost:8000/openapi.json
+
+mcpgen validate
+
+mcpgen doctor
+
+mcpgen version
+```
+
+---
+
+# Output Structure
+
+```
+generated/
+
+├── package.json
+├── bunfig.toml
+├── tsconfig.json
+├── README.md
+├── .env.example
+│
+├── src/
+│
+│   ├── index.ts
+│   ├── server.ts
+│   ├── client.ts
+│   ├── auth.ts
+│   ├── schemas.ts
+│   │
+│   └── tools/
+│       ├── users.ts
+│       ├── invoices.ts
+│       ├── payments.ts
+│       └── products.ts
+```
+
+---
+
+# Testing Strategy
+
+## Unit Tests
+
+- Parser
+- Validator
+- Internal Intermediate Model
+- Tool Generator
+- Authentication Generator
+- Schema Generator
+
+---
+
+## Integration Tests
+
+- Generate project
+- Install dependencies
+- Build generated project
+- Start MCP server
+- Verify MCP handshake
+- Verify generated tool list
+- Execute sample tool invocation
+
+---
+
+## CLI Tests
+
+- init
+- generate
+- validate
+- doctor
+
+---
+
+# Version 1 Goals
+
+- Parse OpenAPI 3.x specifications
+- Support JSON and YAML specifications
+- Resolve nested `$ref` definitions
+- Support GET endpoints
+- Support POST endpoints
+- Support PUT endpoints
+- Support PATCH endpoints
+- Support DELETE endpoints
+- Parse path parameters
+- Parse query parameters
+- Parse request bodies
+- Parse response schemas
+- Parse authentication schemes
+- Generate Zod schemas
+- Generate one MCP tool for every endpoint
+- Generate authentication layer
+- Generate complete Bun project
+- Generate TypeScript source code using ts-morph
+- Generate project assets using Handlebars
+- Format generated source code
+- Build generated project automatically
+- Validate generated MCP server
+- Verify MCP initialization
+- Verify generated tools
+- Produce a production-ready runnable MCP server

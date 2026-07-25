@@ -127,4 +127,9 @@ test("writes project boilerplate successfully", async () => {
   const packageJson = await packageJsonFile.json();
   expect(packageJson.name).toBe("simple-test-api");
   expect(packageJson.dependencies["@modelcontextprotocol/sdk"]).toBeDefined();
+  expect(packageJson.dependencies["zod-to-json-schema"]).toBeDefined();
+
+  const envFile = Bun.file("tests/out/.env.example");
+  const envText = await envFile.text();
+  expect(envText).toContain("API_BASE_URL=http://localhost:8000");
 });
