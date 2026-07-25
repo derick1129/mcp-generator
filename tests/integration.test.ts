@@ -19,3 +19,25 @@ test("runs CLI and generates fully compilable project", async () => {
   expect(result.status).toBe(0);
   expect(await Bun.file("tests/integration-out/src/server.ts").exists()).toBe(true);
 });
+
+test("rejects overwriting existing output directory without --force flag", () => {
+  const result = spawnSync("bun", [
+    "src/cli/index.ts",
+    "generate",
+    "tests/fixtures/simple-spec.yaml",
+    "-o",
+    "tests/integration-out"
+  ]);
+
+  expect(result.status).toBe(1);
+});
+
+test("runs CLI validate command on generated project", () => {
+  const result = spawnSync("bun", [
+    "src/cli/index.ts",
+    "validate",
+    "tests/integration-out"
+  ]);
+
+  expect(result.status).toBe(0);
+});
