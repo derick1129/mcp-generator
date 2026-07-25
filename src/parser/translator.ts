@@ -1,0 +1,165 @@
+import {
+  MCPProject,
+  ToolDefinition,
+  EndpointDefinition,
+  SchemaDefinition,
+  PropertyDefinition,
+  RequestBodyDefinition,
+  ResponseDefinition,
+  SecurityScheme
+} from "../models/types.ts";
+
+function cleanKebab(str: string): string {
+  return str
+    .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/(^-|-$)/g, "");
+}
+
+function resolveSchema(schema: any): SchemaDefinition {
+  if (!schema) return { type: "object", properties: [] };
+  const type = schema.type || "object";
+  const properties: PropertyDefinition[] = [];
+
+  if (schema.properties) {
+    for (const [key, prop] of Object.entries(schema.properties) as any[]) {
+      properties.push({
+        name: key,
+        type: prop.type || "string",
+        required: Array.isArray(schema.required) && schema.required.includes(key),
+        description: prop.description,
+        enum: prop.enum,
+        properties: prop.properties ? resolveSchema(prop).properties : undefined,
+        items: prop.items ? { name: "", type: prop.items.type || "string", required: true } : undefined
+      });
+    }
+  }
+
+  return {
+    type,
+    description: schema.description,
+    properties: properties.length > 0 ? properties : undefined,
+    items: schema.items ? { name: "", type: schema.items.type || "string", required: true } : undefined
+  };
+}
+
+export function translateToIIM(spec: any): MCPProject {
+  const title = spec.info?.title || "mcp-server";
+  const version = spec.info?.version || "1.0.0";
+  const tools: ToolDefinition[] = [];
+
+  const paths = spec.paths || {};
+  for (const [path, methods] of Object.entries(paths)) {
+    for (const [method, operation] of Object.entries(methods as any)) {
+      if (!["get", "post", "put", "patch", "delete"].includes(method.toLowerCase())) continue;
+
+      const op = operation as any;
+      const normalizedMethod = method.toLowerCase() as 'get' | 'post' | 'put' | 'patch' | 'delete';
+      const operationId = op.operationId || `${normalizedMethod}-${path.replace(/[{}]/g, "").replace(/\//g, "-")}`;
+      const name = cleanKebab(operationId);
+
+      const parameters = (op.parameters || []).map((p: any) => ({
+        name: p.name,
+        in: p.in,
+        required: !!p.required,
+        description: p.description,
+        schema: resolveSchema(p.schema || { type: p.type || "string" })
+      }));
+
+      // Flatten parameters into inputProperties
+      const inputProperties: PropertyDefinition[] = parameters.map((p: any) => ({
+        name: p.name,
+        type: p.schema.type,
+        required: p.required,
+        description: p.description
+      }));
+
+      let requestBodyDef: RequestBodyDefinition | undefined = undefined;
+      if (op.requestBody) {
+        const content = op.requestBody.content || {};
+        const mediaType = content["application/json"] || Object.values(content)[0] as any;
+        const schema = mediaType?.schema ? resolveSchema(mediaType.schema) : { type: "object" };
+        requestBodyDef = {
+          description: op.requestBody.description,
+          required: !!op.requestBody.required,
+          schema
+        };
+        if (schema.properties) {
+          for (const prop of schema.properties) {
+            if (!inputProperties.some(p => p.name === prop.name)) {
+              inputProperties.push(prop);
+            }
+          }
+        }
+      }
+
+      const responses: ResponseDefinition[] = [];
+      if (op.responses) {
+        for (const [statusCode, resp] of Object.entries(op.responses) as any[]) {
+          const content = resp.content || {};
+          const mediaType = content["application/json"] || Object.values(content)[0] as any;
+          const schema = mediaType?.schema ? resolveSchema(mediaType.schema) : undefined;
+          responses.push({
+            statusCode,
+            description: resp.description,
+            schema
+          });
+        }
+      }
+
+      const securityRequirement = op.security ? op.security.flatMap((s: any) => Object.keys(s)) : undefined;
+
+      const endpoint: EndpointDefinition = {
+        id: name,
+        operationId,
+        method: normalizedMethod,
+        path,
+        summary: op.summary || "",
+        description: op.description,
+        parameters,
+        requestBody: requestBodyDef,
+        responses,
+        securityRequirement
+      };
+
+      tools.push({
+        name,
+        description: op.summary || op.description || `Execute ${normalizedMethod} request to ${path}`,
+        endpoint,
+        inputSchema: {
+          type: "object",
+          properties: inputProperties
+        }
+      });
+    }
+  }
+
+  const securitySchemes: SecurityScheme[] = [];
+  if (spec.components?.securitySchemes) {
+    for (const [id, scheme] of Object.entries(spec.components.securitySchemes) as any[]) {
+      if (scheme.type === "apiKey") {
+        securitySchemes.push({
+          id,
+          type: "apiKey",
+          name: scheme.name,
+          in: scheme.in
+        });
+      } else if (scheme.type === "http") {
+        securitySchemes.push({
+          id,
+          type: "http",
+          scheme: scheme.scheme
+        });
+      }
+    }
+  }
+
+  return {
+    name: cleanKebab(title),
+    version,
+    outputDirectory: "./generated-mcp-server",
+    tools,
+    securitySchemes
+  };
+}
