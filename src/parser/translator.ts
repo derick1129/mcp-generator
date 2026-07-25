@@ -14,7 +14,7 @@ function cleanKebab(str: string): string {
     .replace(/([a-z0-9])([A-Z])/g, "$1-$2")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "-")
-    .replace(/(^-|-$)/g, "");
+    .replace(/^-+|-+$/g, "");
 }
 
 function resolveSchema(schema: any): SchemaDefinition {
@@ -24,23 +24,36 @@ function resolveSchema(schema: any): SchemaDefinition {
 
   if (schema.properties) {
     for (const [key, prop] of Object.entries(schema.properties) as any[]) {
+      const resolvedProp = resolveSchema(prop);
       properties.push({
         name: key,
-        type: prop.type || "string",
+        type: resolvedProp.type,
         required: Array.isArray(schema.required) && schema.required.includes(key),
         description: prop.description,
         enum: prop.enum,
-        properties: prop.properties ? resolveSchema(prop).properties : undefined,
-        items: prop.items ? { name: "", type: prop.items.type || "string", required: true } : undefined
+        properties: resolvedProp.properties,
+        items: resolvedProp.items
       });
     }
   }
+
+  const itemResolved = schema.items ? resolveSchema(schema.items) : undefined;
+  const items: PropertyDefinition | undefined = itemResolved
+    ? {
+        name: "",
+        type: itemResolved.type,
+        required: true,
+        description: itemResolved.description,
+        properties: itemResolved.properties,
+        items: itemResolved.items
+      }
+    : undefined;
 
   return {
     type,
     description: schema.description,
     properties: properties.length > 0 ? properties : undefined,
-    items: schema.items ? { name: "", type: schema.items.type || "string", required: true } : undefined
+    items
   };
 }
 
@@ -67,12 +80,14 @@ export function translateToIIM(spec: any): MCPProject {
         schema: resolveSchema(p.schema || { type: p.type || "string" })
       }));
 
-      // Flatten parameters into inputProperties
+      // Flatten parameters into inputProperties preserving items and properties
       const inputProperties: PropertyDefinition[] = parameters.map((p: any) => ({
         name: p.name,
         type: p.schema.type,
         required: p.required,
-        description: p.description
+        description: p.description,
+        items: p.schema.items,
+        properties: p.schema.properties
       }));
 
       let requestBodyDef: RequestBodyDefinition | undefined = undefined;

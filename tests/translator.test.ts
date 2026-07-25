@@ -97,3 +97,84 @@ test("translates spec with request body and security schemes", async () => {
   expect(tool.endpoint.securityRequirement).toEqual(["apiKeyAuth"]);
   expect(tool.inputSchema.properties?.length).toBe(2);
 });
+
+test("preserves parameter items and properties in inputProperties", async () => {
+  const spec = {
+    openapi: "3.0.0",
+    info: { title: "---Array Param API---", version: "1.0.0" },
+    paths: {
+      "/search": {
+        get: {
+          operationId: "searchTags",
+          parameters: [
+            {
+              name: "tags",
+              in: "query",
+              required: false,
+              schema: {
+                type: "array",
+                items: { type: "string" }
+              }
+            }
+          ],
+          responses: { "200": { description: "OK" } }
+        }
+      }
+    }
+  };
+
+  const project = translateToIIM(spec);
+  expect(project.name).toBe("array-param-api");
+  const tool = project.tools[0];
+  const tagsProp = tool.inputSchema.properties?.find((p) => p.name === "tags");
+  expect(tagsProp).toBeDefined();
+  expect(tagsProp?.type).toBe("array");
+  expect(tagsProp?.items).toBeDefined();
+  expect(tagsProp?.items?.type).toBe("string");
+});
+
+test("resolves array item schemas recursively for objects in arrays", async () => {
+  const spec = {
+    openapi: "3.0.0",
+    info: { title: "Nested Array API", version: "1.0.0" },
+    paths: {
+      "/batch": {
+        post: {
+          operationId: "batchInsert",
+          requestBody: {
+            required: true,
+            content: {
+              "application/json": {
+                schema: {
+                  type: "object",
+                  properties: {
+                    items: {
+                      type: "array",
+                      items: {
+                        type: "object",
+                        properties: {
+                          id: { type: "string" },
+                          value: { type: "number" }
+                        }
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          responses: { "200": { description: "OK" } }
+        }
+      }
+    }
+  };
+
+  const project = translateToIIM(spec);
+  const tool = project.tools[0];
+  const itemsProp = tool.inputSchema.properties?.find((p) => p.name === "items");
+  expect(itemsProp).toBeDefined();
+  expect(itemsProp?.type).toBe("array");
+  expect(itemsProp?.items?.type).toBe("object");
+  expect(itemsProp?.items?.properties?.length).toBe(2);
+  expect(itemsProp?.items?.properties?.[0].name).toBe("id");
+});
