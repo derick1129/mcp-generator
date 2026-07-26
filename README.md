@@ -8,43 +8,35 @@ Instead of manually implementing standard CRUD endpoint wrappers for every REST 
 
 ## Architecture Pipeline
 
-The compiler follows a distinct 5-stage architecture pipeline to decouple the source input parsing from final output styling:
+The compiler follows a simple 3-layer architecture. An OpenAPI spec enters through the CLI, gets normalized into an internal project model, and is then emitted as a runnable MCP server.
 
 ```
 +------------------------------------------+
 |      OpenAPI Specification (JSON/YAML)   |
 +------------------------------------------+
                      |
-                     |  [1] Parsing & Dereferencing
+                     |  [1] Input Layer
                      v
 +------------------------------------------+
-|         OpenAPI Parser & Resolver        |
-|       (@apidevtools/swagger-parser)      |
+|       CLI + OpenAPI Parser/Resolver      |
+|  cli/index.ts + parser/parser.ts         |
 +------------------------------------------+
                      |
-                     |  [2] Translation & Normalization
+                     |  [2] Translation Layer
                      v
 +------------------------------------------+
 |      Internal Intermediate Model (IIM)   |
-|   (Types defining endpoints, schemas,    |
-|      servers, and security rules)        |
+| parser/translator.ts + models/types.ts   |
 +------------------------------------------+
                      |
-                     |  [3] Code Generation
+                     |  [3] Output Layer
                      v
 +------------------------------------------+
-|          Code Generation Engine          |
-|      (ts-morph AST + Handlebars templates) |
+|       Generated TypeScript MCP Server    |
+| generator/* + runtime/validator.ts       |
 +------------------------------------------+
                      |
-                     |  [4] Scaffolding
-                     v
-+------------------------------------------+
-|    Generated TypeScript MCP Server       |
-|     (Zod Schemas + fetch handlers)       |
-+------------------------------------------+
-                     |
-                     |  [5] Subprocess verification
+                     |  Validation
                      v
 +------------------------------------------+
 |             Runnable Server              |
@@ -53,11 +45,9 @@ The compiler follows a distinct 5-stage architecture pipeline to decouple the so
 ```
 
 ### What Each Layer Does:
-1. **OpenAPI Parser**: Parses raw JSON or YAML. Uses Swagger Parser to resolve all circular and external `$ref` schema references, transforming the file into a unified, flattened OpenAPI document.
-2. **Intermediate Translator**: Translates the OpenAPI schema definitions into our Internal Intermediate Model (IIM). This layer normalizes method paths, separates URL parameters (query/path/headers) from JSON bodies, filters security credentials (`apiKey`/`http`), and formats API names to safe kebab-case MCP tools.
-3. **Zod & Code Generator**: Emits TypeScript code using programmatic AST manipulation via `ts-morph` to guarantee syntactically valid files. It generates schemas (`schemas.ts`), tools grouped by OpenAPI tags (`tools/`), and the entrypoint server registering the schemas using the official `@modelcontextprotocol/sdk`.
-4. **Project Boilerplate Generator**: Emits standard project configuration files using Handlebars templates to produce a clean, self-contained project (e.g. `package.json`, `tsconfig.json`, `bunfig.toml`, `.env.example`, `README.md`).
-5. **Runtime Validator**: Spawns standard Bun subprocesses inside the output folder to execute `bun install`, check TypeScript compilation via `bunx tsc --noEmit`, and perform a JSON-RPC stdio handshake validation to guarantee runtime safety.
+1. **Input layer**: `cli/index.ts` defines the `mcpgen generate <spec>` and `mcpgen validate [dir]` commands. `parser/parser.ts` uses Swagger Parser to dereference the OpenAPI document and return a resolved spec object.
+2. **Translation layer**: `parser/translator.ts` converts the resolved OpenAPI paths, methods, parameters, request bodies, responses, and security schemes into the Internal Intermediate Model (IIM). `models/types.ts` defines the TypeScript interfaces for that model.
+3. **Output layer**: The files in `generator/` turn the IIM into a generated MCP server. `project-generator.ts` writes template-based project files, `schema-generator.ts` writes Zod schemas, `tool-generator.ts` writes fetch-based MCP tool handlers into `tools/default.ts`, and `server-generator.ts` writes the MCP stdio server. `runtime/validator.ts` installs dependencies, type-checks the generated project, and performs a JSON-RPC initialization handshake.
 
 ---
 
@@ -76,7 +66,6 @@ mcp-generator/
 │   ├── env.example.hbs
 │   └── README.md.hbs
 ├── src/                        # Main compiler source files
-│   ├── index.ts                # Main export entrypoint
 │   ├── cli/                    # CLI execution routing (Commander.js)
 │   │   ├── index.ts            # Commander setup and callbacks
 │   ├── parser/                 # Resolver and intermediate translator
@@ -85,10 +74,10 @@ mcp-generator/
 │   ├── models/                 # IIM TypeScript interface declarations
 │   │   └── types.ts
 │   ├── generator/              # Code synthesis engines
-│   │   ├── project-generator.ts# Writes configuration files
-│   │   ├── schema-generator.ts # Programmatically writes Zod schemas
-│   │   ├── server-generator.ts # Synthesizes main server listener
-│   │   └── tool-generator.ts   # Emits fetch wrappers and parameters
+│   │   ├── project-generator.ts # Writes configuration files
+│   │   ├── schema-generator.ts  # Programmatically writes Zod schemas
+│   │   ├── server-generator.ts  # Synthesizes main server listener
+│   │   └── tool-generator.ts    # Emits tools/default.ts fetch wrappers
 │   └── runtime/                # Under-the-hood validations
 │       └── validator.ts        # Compiles, type-checks, and handshakes
 └── tests/                      # Core test suite (using bun test)
@@ -117,7 +106,6 @@ mcpgen generate <openapi.json_or_yaml_path_or_url> -o ./my-mcp-server
 Options:
 * `-o, --out-dir <dir>`: Target generation folder (defaults to `./generated-mcp-server`)
 * `-f, --force`: Silently overwrite the target directory if it already exists
-* `--no-install`: Skip automatic running of `bun install` during verification
 
 ### 3. Validate a server
 ```bash
