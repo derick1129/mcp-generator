@@ -25,8 +25,7 @@ test("generates main server setup file with zodToJsonSchema converter", async ()
 
   expect(serverFileStr).toContain("new Server");
   expect(serverFileStr).toContain("ListToolsRequestSchema");
-  expect(serverFileStr).toContain('import { zodToJsonSchema } from "zod-to-json-schema"');
-  expect(serverFileStr).toContain("zodToJsonSchema(t.inputSchema)");
+  expect(serverFileStr).toContain("toJSONSchema");
 });
 
 test("generates tool handler with request body and header/query parameter separation", async () => {

@@ -128,7 +128,8 @@ test("writes project boilerplate successfully", async () => {
   const packageJson = await packageJsonFile.json();
   expect(packageJson.name).toBe("simple-test-api");
   expect(packageJson.dependencies["@modelcontextprotocol/sdk"]).toBeDefined();
-  expect(packageJson.dependencies["zod-to-json-schema"]).toBeDefined();
+  expect(packageJson.dependencies["zod"]).toBeDefined();
+  expect(packageJson.dependencies["zod-to-json-schema"]).toBeUndefined();
 
   const envFile = Bun.file("tests/out/.env.example");
   const envText = await envFile.text();
