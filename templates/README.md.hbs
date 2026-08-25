@@ -1,2 +1,60 @@
-# {{name}} MCP Server
-Generated via mcp-generator.
+# {{name}}
+
+Generated Model Context Protocol (MCP) server adhering to the **MCP 2026-07-28** specification.
+
+## Features
+- **Protocol Version**: `2026-07-28` (stateless, per-request `_meta`)
+- **Stateless Execution**: No session handshake or state tracking required.
+- **Discovery**: Implements the mandatory `server/discover` RPC, advertising `supportedVersions`, capabilities, and `_meta["io.modelcontextprotocol/serverInfo"]`.
+- **Schema Standard**: Tool input schemas emitted as **JSON Schema 2020-12** (Zod v4 native converter).
+- **Error Handling**: Unknown tools return JSON-RPC `-32602`; unsupported requested versions return `-32022` (`UnsupportedProtocolVersionError`) with a `supported` list.
+- **Caching**: List responses carry `ttlMs` and `cacheScope` per the `CacheableResult` interface.
+- **Transport**: Standard I/O (Stdio).
+
+## Installation & Run
+
+```bash
+bun install
+bun run src/index.ts
+```
+
+## Calling the Server
+
+No `initialize` handshake is needed. Every request carries its protocol version
+and client info in namespaced `_meta` keys:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": "discover-1",
+  "method": "server/discover",
+  "params": {
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+      "io.modelcontextprotocol/clientInfo": { "name": "MyClient", "version": "1.0.0" },
+      "io.modelcontextprotocol/clientCapabilities": {}
+    }
+  }
+}
+```
+
+Then call tools directly:
+
+```json
+{
+  "jsonrpc": "2.0",
+  "id": 2,
+  "method": "tools/call",
+  "params": {
+    "name": "<tool-name>",
+    "arguments": {},
+    "_meta": {
+      "io.modelcontextprotocol/protocolVersion": "2026-07-28"
+    }
+  }
+}
+```
+
+## Environment Variables
+Copy `.env.example` to `.env` and configure:
+- `API_BASE_URL`: Base URL for target REST API (default: `{{baseUrl}}`)

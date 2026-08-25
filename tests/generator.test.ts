@@ -134,4 +134,9 @@ test("writes project boilerplate successfully", async () => {
   const envFile = Bun.file("tests/out/.env.example");
   const envText = await envFile.text();
   expect(envText).toContain("API_BASE_URL=http://localhost:8000");
+
+  const readmeFile = Bun.file("tests/out/README.md");
+  const readmeText = await readmeFile.text();
+  expect(readmeText).toContain("2026-07-28");
+  expect(readmeText).toContain("server/discover");
 });
