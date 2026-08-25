@@ -3,7 +3,7 @@ import { parseOpenApiSpec } from "../src/parser/parser.ts";
 import { translateToIIM } from "../src/parser/translator.ts";
 import { generateZodSchemas } from "../src/generator/schema-generator.ts";
 import { generateProjectBoilerplate } from "../src/generator/project-generator.ts";
-import { MCPProject } from "../src/models/types.ts";
+import { MCPProject, MCP_PROTOCOL_VERSION } from "../src/models/types.ts";
 import { rm } from "node:fs/promises";
 
 beforeAll(async () => {
@@ -25,6 +25,7 @@ test("generates zod schemas for complex types, enums, tool names with numbers, a
   const project: MCPProject = {
     name: "complex-api",
     version: "1.0.0",
+    protocolVersion: MCP_PROTOCOL_VERSION,
     outputDirectory: "./out",
     securitySchemes: [],
     tools: [
@@ -127,9 +128,15 @@ test("writes project boilerplate successfully", async () => {
   const packageJson = await packageJsonFile.json();
   expect(packageJson.name).toBe("simple-test-api");
   expect(packageJson.dependencies["@modelcontextprotocol/sdk"]).toBeDefined();
-  expect(packageJson.dependencies["zod-to-json-schema"]).toBeDefined();
+  expect(packageJson.dependencies["zod"]).toBeDefined();
+  expect(packageJson.dependencies["zod-to-json-schema"]).toBeUndefined();
 
   const envFile = Bun.file("tests/out/.env.example");
   const envText = await envFile.text();
   expect(envText).toContain("API_BASE_URL=http://localhost:8000");
+
+  const readmeFile = Bun.file("tests/out/README.md");
+  const readmeText = await readmeFile.text();
+  expect(readmeText).toContain("2026-07-28");
+  expect(readmeText).toContain("server/discover");
 });

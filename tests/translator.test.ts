@@ -1,6 +1,7 @@
 import { expect, test } from "bun:test";
 import { parseOpenApiSpec } from "../src/parser/parser.ts";
 import { translateToIIM } from "../src/parser/translator.ts";
+import { MCP_PROTOCOL_VERSION } from "../src/models/types.ts";
 
 test("translates simple OpenAPI to intermediate model", async () => {
   const spec = await parseOpenApiSpec("tests/fixtures/simple-spec.yaml");
@@ -189,5 +190,17 @@ test("extracts first server URL from spec as baseUrl", async () => {
 
   const project = translateToIIM(spec);
   expect(project.baseUrl).toBe("https://api.example.com/v1");
+});
+
+test("sets MCP protocol version 2026-07-28 on translated project", async () => {
+  const spec = {
+    openapi: "3.0.0",
+    info: { title: "Versioned API", version: "1.0.0" },
+    paths: {}
+  };
+
+  const project = translateToIIM(spec);
+  expect(project.protocolVersion).toBe(MCP_PROTOCOL_VERSION);
+  expect(project.protocolVersion).toBe("2026-07-28");
 });
 

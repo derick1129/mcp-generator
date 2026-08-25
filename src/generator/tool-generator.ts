@@ -84,7 +84,7 @@ export function generateTools(project: MCPProject): Map<string, string> {
       declarations: [
         {
           name: `${camelName}Tool`,
-          initializer: `{\n  name: ${JSON.stringify(tool.name)},\n  description: ${JSON.stringify(tool.description)},\n  inputSchema: ${inputSchemaName},\n  handler: async (args: any) => {${functionBody}}\n}`
+          initializer: `{\n  name: ${JSON.stringify(tool.name)},\n  description: ${JSON.stringify(tool.description)},\n  inputSchema: ${inputSchemaName},\n  handler: async (args: any, meta?: any) => {${functionBody}}\n}`
         }
       ]
     });

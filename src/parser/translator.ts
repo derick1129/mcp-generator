@@ -1,12 +1,13 @@
 import {
-  MCPProject,
+  MCP_PROTOCOL_VERSION,
+  PropertyDefinition,
   ToolDefinition,
   EndpointDefinition,
   SchemaDefinition,
-  PropertyDefinition,
   RequestBodyDefinition,
   ResponseDefinition,
-  SecurityScheme
+  SecurityScheme,
+  MCPProject
 } from "../models/types.ts";
 
 function cleanKebab(str: string): string {
@@ -174,6 +175,7 @@ export function translateToIIM(spec: any): MCPProject {
   return {
     name: cleanKebab(title),
     version,
+    protocolVersion: MCP_PROTOCOL_VERSION,
     outputDirectory: "./generated-mcp-server",
     tools,
     securitySchemes,
