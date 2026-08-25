@@ -3,7 +3,7 @@ import { parseOpenApiSpec } from "../src/parser/parser.ts";
 import { translateToIIM } from "../src/parser/translator.ts";
 import { generateZodSchemas } from "../src/generator/schema-generator.ts";
 import { generateProjectBoilerplate } from "../src/generator/project-generator.ts";
-import { MCPProject } from "../src/models/types.ts";
+import { MCPProject, MCP_PROTOCOL_VERSION } from "../src/models/types.ts";
 import { rm } from "node:fs/promises";
 
 beforeAll(async () => {
@@ -25,6 +25,7 @@ test("generates zod schemas for complex types, enums, tool names with numbers, a
   const project: MCPProject = {
     name: "complex-api",
     version: "1.0.0",
+    protocolVersion: MCP_PROTOCOL_VERSION,
     outputDirectory: "./out",
     securitySchemes: [],
     tools: [

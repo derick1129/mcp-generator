@@ -1,8 +1,9 @@
 import { expect, test } from "bun:test";
 import { parseOpenApiSpec } from "../src/parser/parser.ts";
 import { translateToIIM } from "../src/parser/translator.ts";
-import { generateTools } from "../src/generator/tool-generator.ts";
 import { generateServerFile } from "../src/generator/server-generator.ts";
+import { generateTools } from "../src/generator/tool-generator.ts";
+import { MCP_PROTOCOL_VERSION } from "../src/models/types.ts";
 
 test("generates correct tools mapping", async () => {
   const spec = await parseOpenApiSpec("tests/fixtures/simple-spec.yaml");
@@ -32,6 +33,7 @@ test("generates tool handler with request body and header/query parameter separa
   const project = {
     name: "post-api",
     version: "1.0.0",
+    protocolVersion: MCP_PROTOCOL_VERSION,
     outputDirectory: "./out",
     baseUrl: "https://api.example.com",
     securitySchemes: [],
