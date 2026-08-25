@@ -75,3 +75,13 @@ test("generates tool handler with request body and header/query parameter separa
   expect(defaultTools).toContain('fetchOptions.body = JSON.stringify(body);');
 });
 
+test("generates tool handlers accepting (args, meta) metadata context", async () => {
+  const spec = await parseOpenApiSpec("tests/fixtures/simple-spec.yaml");
+  const project = translateToIIM(spec);
+  const toolsMap = generateTools(project);
+  const defaultTools = toolsMap.get("default.ts");
+
+  expect(defaultTools).toBeDefined();
+  expect(defaultTools).toContain("handler: async (args: any, meta?: any)");
+});
+
